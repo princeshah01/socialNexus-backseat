@@ -30,4 +30,4 @@
       2. /delete-token
    7. {{url}}/api/user/avatar ✅
    8. {{url}}/api/user/toggle-is-fav/:connectionid ✅
-   9. {{url}}/api/feed/:page (query for age range and oppositeGender ) ✅
+   9. {{url}}/api/user/feed/:page (query for age range and oppositeGender ) ✅
