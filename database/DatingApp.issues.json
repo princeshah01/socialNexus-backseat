@@ -1,0 +1,36 @@
+[{
+  "_id": {
+    "$oid": "67dcfb264d9c2ba53b867ed9"
+  },
+  "message": "gfxgnfxc",
+  "userId": {
+    "$oid": "67dcf8f54d9c2ba53b867ead"
+  },
+  "status": "Resolved",
+  "issueType": "UI/UX Improvement Suggestion",
+  "createdAt": {
+    "$date": "2025-03-21T05:37:42.430Z"
+  },
+  "updatedAt": {
+    "$date": "2025-03-21T05:37:42.430Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "67dd4a5cd90b80178fb8ac12"
+  },
+  "message": "jhdsjghfdsgdf asgs",
+  "userId": {
+    "$oid": "67dcf8f54d9c2ba53b867ead"
+  },
+  "status": "Pending",
+  "issueType": "Payment Issues",
+  "createdAt": {
+    "$date": "2025-03-21T11:15:40.277Z"
+  },
+  "updatedAt": {
+    "$date": "2025-03-21T11:15:40.277Z"
+  },
+  "__v": 0
+}]
