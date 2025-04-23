@@ -3,6 +3,7 @@ const path = require("path");
 const connectDB = require("./dbConnection");
 const cors = require("cors");
 const errorHandler = require("./middlewares/errorHandler");
+require("dotenv").config()
 
 // importing routers
 
