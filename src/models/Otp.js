@@ -4,18 +4,22 @@ const optSchema = new Schema({
     type: String,
     required: true,
     lowercase: true,
-    unique: true,
     trim: true,
     maxLength: 40,
   },
   otp: {
     type: String,
     required: true,
+    unique: true,
+  },
+  isOtpVerified: {
+    default: false,
+    type: Boolean,
   },
   createdAt: {
     type: Date,
     default: Date.now,
-    expires: 59,
+    expires: 600,
   },
 });
 

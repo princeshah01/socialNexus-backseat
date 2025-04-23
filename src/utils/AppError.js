@@ -1,6 +1,6 @@
-function AppError(message, code, success) {
+function AppError(message, status, success) {
   this.message = message || "Something Went Wrong";
-  this.code = code;
+  this.status = status;
   this.stack = new Error().stack;
 }
 
