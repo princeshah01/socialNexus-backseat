@@ -213,27 +213,30 @@ exports.resendOTP = async (req, res, next) => {
 
 exports.changePassword = async (req, res, next) => {
   try {
-    const { email, password } = req?.body;
+    const { email, password } = req.body;
+
     const isOtpVerified = await OTP.findOne({ email, isOtpVerified: true });
-
-    console.log("🚀 ~ exports.changePassword= ~ isOtpVerified:", isOtpVerified);
-    const user = await User.findOne({
-      email: isOtpVerified?.email,
-    });
-    if (!user) {
-      throw new AppError("user doesn't exist with this email");
-    }
-
     if (!isOtpVerified) {
-      throw new AppError("Your OTP is NOT verified yet. verify and try again");
+      throw new AppError("Your OTP is NOT verified yet. Verify and try again");
     }
 
-    console.log(user);
+    const user = await User.findOne({ email }).select("+password lastPassword");
+    if (!user) {
+      throw new AppError("User doesn't exist with this email");
+    }
+
+    if (user.password) {
+      user.lastPassword.push(user.password);
+    }
+
     user.password = await bcrypt.hash(password, 10);
     await user.save();
-    res.status(responseCode.EntryCreated).json({
+
+    await OTP.deleteOne({ email });
+
+    res.status(200).json({
       success: true,
-      message: "Your password has been Changed Successfully",
+      message: "Your password has been changed successfully",
     });
   } catch (error) {
     next(error);

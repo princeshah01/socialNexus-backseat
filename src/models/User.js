@@ -52,6 +52,14 @@ const UserSchema = new Schema(
       required: true,
       select: false,
     },
+    lastPassword: {
+      type: [String],
+      minLength: 8,
+      maxLength: 100,
+      default: [],
+      trim: true,
+      select: false,
+    },
     gender: {
       type: String,
       enum: {
