@@ -73,7 +73,7 @@ const UserSchema = new Schema(
     },
     age: {
       type: Number,
-      min: [18, "Age must be at least 18."],
+      // min: [18, "Age must be at least 18."],
       max: [99, "Age cannot be more than 99."],
     },
     isVerified: {

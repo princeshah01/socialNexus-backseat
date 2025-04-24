@@ -1,5 +1,5 @@
 const User = require("../models/User");
-const { validateSignUp, ValidateLogin } = require("../helper/validators");
+const { validateSignUp, ValidateLogin, validatePassword } = require("../helper/validators");
 const bcrypt = require("bcrypt");
 const OTP = require("../models/Otp");
 const mailSender = require("../helper/mailSender");
@@ -9,7 +9,8 @@ const { UserInfo } = require("firebase-admin/auth");
 const AppError = require("../utils/AppError");
 const responseCode = require("../utils/responseCode");
 const { sendOtp } = require("../helper/sendOtp");
-const { response } = require("express");
+const storeLastFivePassword = require("../utils/dbfunctions");
+const compareWithLastPassword = require("../helper/compareWithLastpassword");
 
 // login Controller
 exports.Login = async (req, res, next) => {
@@ -96,7 +97,6 @@ exports.signup = async (req, res, next) => {
     const newUser = new User(userInfo);
     await newUser.save();
     const token = await newUser.getJWT();
-    console.log(newUser, token);
     return res.status(responseCode.EntryCreated).json({
       success: true,
       message: `OTP has been sent to ${newUser.email}`,
@@ -118,7 +118,6 @@ exports.forgetpassword = async (req, res, next) => {
     const existingUser = await User.findOne({
       email,
     });
-    console.log(existingUser);
     if (!existingUser) {
       throw new AppError(
         "User Doesnot Exist with This Email",
@@ -136,14 +135,43 @@ exports.forgetpassword = async (req, res, next) => {
     next(error);
   }
 };
-exports.resetWithOldPassword = async (req, res, next) => {};
+
+// reset With Old Password
+exports.resetWithOldPassword = async (req, res, next) => {
+  try {
+    const { oldPassword, newPassword, email } = req?.body;
+    console.log(oldPassword, newPassword, email)
+    validatePassword(newPassword);
+    const user = await User.findOne({ email }).select("+password lastPassword");
+    const isPasswordMatchedWithPast = await compareWithLastPassword(oldPassword, [...user.lastPassword, user.password]);
+    if (!isPasswordMatchedWithPast) {
+      throw new AppError("Password You Entered doesn't match with the old Passwords", responseCode.BadRequest, false)
+    }
+    const isnewPasswordMatchedWithPast = await compareWithLastPassword(newPassword, [...user.lastPassword, user.password]);
+    if (isnewPasswordMatchedWithPast) {
+      throw new AppError("Password You Entered match with the old Passwords try something else", responseCode.Conflict, false)
+    }
+    const isOldPasswordSaved = await storeLastFivePassword(user._id, user.password);
+    if (!isOldPasswordSaved) {
+      throw new AppError("Unable to Change Password", responseCode.InternalServer, false)
+    }
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save()
+    res.status(responseCode.EntryCreated).json({
+      success: true,
+      message: "Password Changed Successfully"
+    })
+  } catch (error) {
+    // console.log(error)
+    next(error)
+  }
+};
 
 // otp verify
 
 exports.verifyOTP = async (req, res, next) => {
   try {
     const { email, otp } = req.body;
-    console.log(email, otp);
     if (!email) {
       throw new AppError("Invalid Email", responseCode.Invalid, false);
     }
@@ -171,8 +199,6 @@ exports.verifyOTP = async (req, res, next) => {
         false
       );
     }
-    console.log(existingOtp);
-
     if (existingOtp.otp !== otp) {
       throw new AppError("Invalid OTP", responseCode.InvalidOTP, false);
     }
@@ -210,10 +236,11 @@ exports.resendOTP = async (req, res, next) => {
     next(error);
   }
 };
-
+// change Password
 exports.changePassword = async (req, res, next) => {
   try {
     const { email, password } = req.body;
+    ValidateLogin({ email, password })
 
     const isOtpVerified = await OTP.findOne({ email, isOtpVerified: true });
     if (!isOtpVerified) {
@@ -222,11 +249,15 @@ exports.changePassword = async (req, res, next) => {
 
     const user = await User.findOne({ email }).select("+password lastPassword");
     if (!user) {
-      throw new AppError("User doesn't exist with this email");
+      throw new AppError("User doesn't exist with this email", responseCode.ResourceNotFound, false);
     }
-
-    if (user.password) {
-      user.lastPassword.push(user.password);
+    const isPasswordMatchedWithPast = await compareWithLastPassword(password, [...user.lastPassword, user.password])
+    if (isPasswordMatchedWithPast) {
+      throw new AppError("can't use Password That was used Before", responseCode.Conflict, false)
+    }
+    const isOldPasswordSaved = await storeLastFivePassword(user._id, user.password);
+    if (!isOldPasswordSaved) {
+      throw new AppError("Failed to update Password Try Again later", responseCode.InternalServer, false)
     }
 
     user.password = await bcrypt.hash(password, 10);

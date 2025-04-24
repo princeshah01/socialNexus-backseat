@@ -35,5 +35,9 @@ const ValidateLogin = (data) => {
         throw new Error("Invalid Password");
     }
 };
-
-module.exports = { validateSignUp, ValidateLogin };
+const validatePassword = (data) => {
+    if (!data || !validator.isStrongPassword(data)) {
+        throw new Error("Invalid Password");
+    }
+}
+module.exports = { validateSignUp, ValidateLogin, validatePassword };
