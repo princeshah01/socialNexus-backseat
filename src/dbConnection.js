@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 
 const connectDB = async () => {
-  await mongoose.connect("mongodb://localhost:27017/DatingApp");
+  await mongoose.connect(process.env.MONGO_URL);
 };
 
 module.exports = connectDB;

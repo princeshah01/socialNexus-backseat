@@ -1,5 +1,9 @@
 const User = require("../models/User");
-const { validateSignUp, ValidateLogin, validatePassword } = require("../helper/validators");
+const {
+  validateSignUp,
+  ValidateLogin,
+  validatePassword,
+} = require("../helper/validators");
 const bcrypt = require("bcrypt");
 const OTP = require("../models/Otp");
 const mailSender = require("../helper/mailSender");
@@ -11,6 +15,7 @@ const responseCode = require("../utils/responseCode");
 const { sendOtp } = require("../helper/sendOtp");
 const storeLastFivePassword = require("../utils/dbfunctions");
 const compareWithLastPassword = require("../helper/compareWithLastpassword");
+const jwt = require("jsonwebtoken");
 
 // login Controller
 exports.Login = async (req, res, next) => {
@@ -140,30 +145,51 @@ exports.forgetpassword = async (req, res, next) => {
 exports.resetWithOldPassword = async (req, res, next) => {
   try {
     const { oldPassword, newPassword, email } = req?.body;
-    console.log(oldPassword, newPassword, email)
+    console.log(oldPassword, newPassword, email);
     validatePassword(newPassword);
     const user = await User.findOne({ email }).select("+password lastPassword");
-    const isPasswordMatchedWithPast = await compareWithLastPassword(oldPassword, [...user.lastPassword, user.password]);
+    const isPasswordMatchedWithPast = await compareWithLastPassword(
+      oldPassword,
+      [...user.lastPassword, user.password]
+    );
     if (!isPasswordMatchedWithPast) {
-      throw new AppError("Password You Entered doesn't match with the old Passwords", responseCode.BadRequest, false)
+      throw new AppError(
+        "Password You Entered doesn't match with the old Passwords",
+        responseCode.BadRequest,
+        false
+      );
     }
-    const isnewPasswordMatchedWithPast = await compareWithLastPassword(newPassword, [...user.lastPassword, user.password]);
+    const isnewPasswordMatchedWithPast = await compareWithLastPassword(
+      newPassword,
+      [...user.lastPassword, user.password]
+    );
     if (isnewPasswordMatchedWithPast) {
-      throw new AppError("Password You Entered match with the old Passwords try something else", responseCode.Conflict, false)
+      throw new AppError(
+        "Password You Entered match with the old Passwords try something else",
+        responseCode.Conflict,
+        false
+      );
     }
-    const isOldPasswordSaved = await storeLastFivePassword(user._id, user.password);
+    const isOldPasswordSaved = await storeLastFivePassword(
+      user._id,
+      user.password
+    );
     if (!isOldPasswordSaved) {
-      throw new AppError("Unable to Change Password", responseCode.InternalServer, false)
+      throw new AppError(
+        "Unable to Change Password",
+        responseCode.InternalServer,
+        false
+      );
     }
     user.password = await bcrypt.hash(newPassword, 10);
-    await user.save()
+    await user.save();
     res.status(responseCode.EntryCreated).json({
       success: true,
-      message: "Password Changed Successfully"
-    })
+      message: "Password Changed Successfully",
+    });
   } catch (error) {
     // console.log(error)
-    next(error)
+    next(error);
   }
 };
 
@@ -171,7 +197,7 @@ exports.resetWithOldPassword = async (req, res, next) => {
 
 exports.verifyOTP = async (req, res, next) => {
   try {
-    const { email, otp } = req.body;
+    const { email, otp, uses } = req.body;
     if (!email) {
       throw new AppError("Invalid Email", responseCode.Invalid, false);
     }
@@ -204,11 +230,17 @@ exports.verifyOTP = async (req, res, next) => {
     }
     user.isVerified = true;
     existingOtp.isOtpVerified = true;
-    await existingOtp.save();
     await user.save();
-    return res
-      .status(responseCode.OK)
-      .json({ message: "OTP verified Done", success: true });
+    let token;
+    if (uses == "change-password") {
+      token = await existingOtp.getJwt();
+    }
+    await existingOtp.deleteOne();
+    return res.status(responseCode.OK).json({
+      message: "OTP verified Done",
+      success: true,
+      otpVerifiedToken: token,
+    });
   } catch (err) {
     next(err);
   }
@@ -236,35 +268,56 @@ exports.resendOTP = async (req, res, next) => {
     next(error);
   }
 };
+
 // change Password
+
+// needs otpVerifiedToken that will be generated when we pass uses:"change-password" when verifying otp
+
 exports.changePassword = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
-    ValidateLogin({ email, password })
-
-    const isOtpVerified = await OTP.findOne({ email, isOtpVerified: true });
-    if (!isOtpVerified) {
+    const { password, otpVerifiedToken } = req.body;
+    validatePassword(password);
+    const { email } = await jwt.verify(
+      otpVerifiedToken,
+      process.env.JWT_SECRET_OTP
+    );
+    if (!email) {
       throw new AppError("Your OTP is NOT verified yet. Verify and try again");
     }
 
     const user = await User.findOne({ email }).select("+password lastPassword");
     if (!user) {
-      throw new AppError("User doesn't exist with this email", responseCode.ResourceNotFound, false);
+      throw new AppError(
+        "User doesn't exist with this email",
+        responseCode.ResourceNotFound,
+        false
+      );
     }
-    const isPasswordMatchedWithPast = await compareWithLastPassword(password, [...user.lastPassword, user.password])
+    const isPasswordMatchedWithPast = await compareWithLastPassword(password, [
+      ...user.lastPassword,
+      user.password,
+    ]);
     if (isPasswordMatchedWithPast) {
-      throw new AppError("can't use Password That was used Before", responseCode.Conflict, false)
+      throw new AppError(
+        "can't use Password That was used Before",
+        responseCode.Conflict,
+        false
+      );
     }
-    const isOldPasswordSaved = await storeLastFivePassword(user._id, user.password);
+    const isOldPasswordSaved = await storeLastFivePassword(
+      user._id,
+      user.password
+    );
     if (!isOldPasswordSaved) {
-      throw new AppError("Failed to update Password Try Again later", responseCode.InternalServer, false)
+      throw new AppError(
+        "Failed to update Password Try Again later",
+        responseCode.InternalServer,
+        false
+      );
     }
 
     user.password = await bcrypt.hash(password, 10);
     await user.save();
-
-    await OTP.deleteOne({ email });
-
     res.status(200).json({
       success: true,
       message: "Your password has been changed successfully",

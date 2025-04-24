@@ -8,7 +8,9 @@
       2. /signup
       3. /forgetpassword
       4. /verify-otp
-      5. /send-otp
+      5. /resend-otp
+      6. /changePassword
+      7. /reset-with-old-password
    2. {{url}}/api/user/profile ✅
       1. /setup
       2. /edit

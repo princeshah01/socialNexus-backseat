@@ -1,7 +1,6 @@
+const { authUser } = require("../../middlewares/authMiddleWares");
 const connectionRoutes = require("express").Router();
-
-connectionRoutes.get("/view", async (req, res) => {
-  res.send("from connection request");
-});
+const connectionController = require("../../controllers/connectionController");
+connectionRoutes.get("/view", authUser, connectionController.view);
 
 module.exports = connectionRoutes;

@@ -13,6 +13,61 @@ const UserSchema = new Schema(
           "invalid Gender . Allowed values for Gender are Male , Female and Others",
       },
     },
+    ageRange: {
+      type: [Number],
+      default: [18, 99],
+      validate: {
+        validator: function (value) {
+          const [min, max] = value;
+          return (
+            Array.isArray(value) &&
+            value.length === 2 &&
+            min >= 18 &&
+            max <= 99 &&
+            max > min
+          );
+        },
+        message: "min ≥ 18, max ≤ 99, and max > min",
+      },
+    },
+    relationShipType: {
+      type: String,
+      enum: {
+        values: [
+          "Casual Dating",
+          "Long-Term Relationship",
+          "Friendship",
+          "Networking",
+          "Companionship",
+          "Marriage",
+          "Hookups",
+          "Something Serious",
+          "Open Relationship",
+          "Exploring / Not Sure",
+        ],
+        message: "Invalid Relation Ship Type",
+      },
+    },
+    zodiacSign: {
+      type: String,
+      enum: {
+        values: [
+          "Aries",
+          "Taurus",
+          "Gemini",
+          "Cancer",
+          "Leo",
+          "Virgo",
+          "Libra",
+          "Scorpio",
+          "Sagittarius",
+          "Capricorn",
+          "Aquarius",
+          "Pisces",
+        ],
+        message: "Invalid Zodic Sign",
+      },
+    },
     fullName: {
       type: String,
       required: true,
@@ -73,7 +128,7 @@ const UserSchema = new Schema(
     },
     age: {
       type: Number,
-      // min: [18, "Age must be at least 18."],
+      min: [18, "Age must be at least 18."],
       max: [99, "Age cannot be more than 99."],
     },
     isVerified: {
@@ -86,19 +141,10 @@ const UserSchema = new Schema(
     },
     bio: {
       type: String,
-      maxLength: 50,
+      maxLength: 200,
     },
     profilePicture: {
       type: String,
-      default:
-        "https://prince.info.np/static/media/prince.71204db128ccdbebba5c.png",
-      // validate: {
-      //   validator: function (value) {
-      //     const imageExtensions = /\.(jpg|jpeg|png|gif|webp)$/i;
-      //     return imageExtensions.test(value) && validator.isURL(value);
-      //   },
-      //   message: "invalid photo url",
-      // },
     },
     twoBestPics: {
       type: [String],
@@ -112,6 +158,7 @@ const UserSchema = new Schema(
       type: {
         type: String,
         enum: ["Point"],
+        default: "Point",
       },
       coordinates: {
         type: [Number],
@@ -128,23 +175,9 @@ const UserSchema = new Schema(
         message: "too many interest added there can be only max 10 :( ",
       },
     },
-    notificationToken: {
-      type: String,
-      default: null,
-    },
-    matches: {
-      type: [Schema.Types.ObjectId],
-      ref: "User",
-      default: [],
-    },
     isPremiumUser: {
       type: Boolean,
       default: false,
-    },
-
-    lastActive: {
-      type: Date,
-      default: null,
     },
   },
   { timestamps: true }
