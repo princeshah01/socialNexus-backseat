@@ -1,21 +1,14 @@
+const AppError = require("../utils/AppError");
 const admin = require("./fireBaseConnection");
+const NotificationToken = require("../models/Notifications");
 
 class NotificationService {
-  static async sendNotification(deviceToken, title, body) {
-    const message = {
-      notification: {
-        title,
-        body,
-      },
-      token: deviceToken,
-    };
+  static async sendNotification(userId, message) {
     try {
-      const response = await admin.messaging().send(message);
-      return response;
-    } catch (error) {
-      console.log(error);
-    }
+      let tokens = await notificationDbFunctions.getAllFcmToken(userId);
+      if (!tokens.length > 0) {
+        throw new AppError("no Fcm Found");
+      }
+    } catch (error) {}
   }
 }
-
-module.exports = NotificationService;

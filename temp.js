@@ -1,50 +1,92 @@
-const { subHours } = require("date-fns");
-const timeToCheckFor = subHours(new Date(), 1);
-console.log(timeToCheckFor);
-const processProfileData = (data) => {
-  const processedData = {};
+const admin = require("./fireBaseConnection");
 
-  // Handle required fields
-  processedData.fullName = data.fullName || null;
-  processedData.gender = data.gender || null;
-  processedData.dob = data.dob || null;
-  processedData.bio = data.bio || null;
-  processedData.locationName = data.locationName || null;
+class NotificationService {
+  static async sendNotification(deviceToken, title, body) {
+    const message = {
+      notification: {
+        title,
+        body,
+      },
+      token: deviceToken,
+    };
+    try {
+      const response = await admin.messaging().send(message);
+      return response;
+    } catch (error) {
+      console.log(error);
+    }
+  }
+  static async sendNotificationToMany(notificationIds, title, body) {
+    const message = {
+      notification: {
+        title,
+        body,
+      },
+    };
+  }
+}
 
-  // Parse JSON strings if present
-  try {
-    processedData.locationcoordiantes = data.locationcoordiantes
-      ? JSON.parse(data.locationcoordiantes)
-      : null;
-  } catch (error) {
-    processedData.locationcoordiantes = null;
+module.exports = NotificationService;
+const admin = require("firebase-admin");
+const Database = require("./Database"); // Your database
+
+class Notification {
+  static async sendPushNotification(token, message) {
+    try {
+      const response = await admin.messaging().send({
+        token: token,
+        notification: {
+          title: message.title,
+          body: message.body,
+        },
+      });
+      console.log("Notification sent successfully:", response);
+    } catch (error) {
+      console.error("Error sending notification:", error);
+      await this.handlePushNotificationError(error, token);
+    }
   }
 
-  processedData.InterestIn = data.InterestIn || null;
-
-  // Handle array fields (interest and ageRange)
-  try {
-    processedData.interest = data.interest ? JSON.parse(data.interest) : [];
-  } catch (error) {
-    processedData.interest = [];
+  static async handlePushNotificationError(error, token) {
+    if (error.code === "messaging/registration-token-not-registered") {
+      console.log(`Token ${token} is no longer valid, marking as inactive.`);
+      await Database.removeToken(token); // Remove from DB
+    } else {
+      console.error("Push notification error:", error);
+    }
   }
 
-  try {
-    processedData.ageRange = data.ageRange ? JSON.parse(data.ageRange) : [];
-  } catch (error) {
-    processedData.ageRange = [];
+  static async cleanInactiveTokens() {
+    try {
+      const tokens = await Database.getAllTokens();
+      for (let token of tokens) {
+        await this.sendPushNotification(token, {
+          title: "Test",
+          body: "Test message",
+        }).catch((error) => this.handlePushNotificationError(error, token));
+      }
+    } catch (error) {
+      console.error("Error cleaning inactive tokens:", error);
+    }
   }
 
-  processedData.zodicSign = data.zodicSign || null;
-  processedData.relationshipType = data.relationshipType || null;
+  static async registerToken(userId, token) {
+    try {
+      await Database.saveToken(userId, token); // Store token in DB
+      console.log("Token registered successfully for user:", userId);
+    } catch (error) {
+      console.error("Error registering token:", error);
+    }
+  }
 
-  // Handle optional fields (e.g., twoBestPics, profilePicture)
-  processedData.twoBestPics = data.twoBestPics
-    ? data.twoBestPics.map((file) => file.filename)
-    : [];
-  processedData.profilePicture = data.profilePicture
-    ? data.profilePicture[0].filename
-    : null;
+  static async removeToken(userId) {
+    try {
+      await Database.removeToken(userId); // Remove token from DB
+      console.log("Token removed successfully for user:", userId);
+    } catch (error) {
+      console.error("Error removing token:", error);
+    }
+  }
+}
 
-  return processedData;
-};
+module.exports = Notification;

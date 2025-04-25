@@ -97,6 +97,10 @@ exports.signup = async (req, res, next) => {
       );
       return next(error);
     }
+    const { fcmToken } = userInfo;
+    if (fcmToken) {
+      /// here store the fcm token to notification Collection associated with userId
+    }
     userInfo.password = await bcrypt.hash(userInfo.password, 10);
     await sendOtp(userInfo.email);
     const newUser = new User(userInfo);
