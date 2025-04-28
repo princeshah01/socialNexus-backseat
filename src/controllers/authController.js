@@ -16,6 +16,8 @@ const { sendOtp } = require("../helper/sendOtp");
 const storeLastFivePassword = require("../utils/dbfunctions");
 const compareWithLastPassword = require("../helper/compareWithLastpassword");
 const jwt = require("jsonwebtoken");
+const notificationService = require("../helper/NotificationService");
+const notificationPayload = require("../utils/notificationpayload");
 
 // login Controller
 exports.Login = async (req, res, next) => {
@@ -47,11 +49,18 @@ exports.Login = async (req, res, next) => {
       return next(error);
     }
     const response = existingUser.toObject();
-
     delete response.password;
+    const token_Saved = await notificationService.storeToken(
+      existingUser._id,
+      userInfo.fcmToken
+    );
+    response.tokenSaved = token_Saved;
 
     const token = await existingUser.getJWT();
-    const chatToken = await generateToken(existingUser);
+    let chatToken;
+    if (existingUser.isProfileSetup) {
+      chatToken = await generateToken(existingUser);
+    }
     // res.cookie("token", token);
     res.status(responseCode.OK).json({
       success: true,
@@ -97,20 +106,24 @@ exports.signup = async (req, res, next) => {
       );
       return next(error);
     }
-    const { fcmToken } = userInfo;
-    if (fcmToken) {
-      /// here store the fcm token to notification Collection associated with userId
-    }
+
     userInfo.password = await bcrypt.hash(userInfo.password, 10);
     await sendOtp(userInfo.email);
     const newUser = new User(userInfo);
     await newUser.save();
     const token = await newUser.getJWT();
+    let response = newUser.toObject();
+    const { fcmToken } = userInfo;
+    let token_Saved = await notificationService.storeToken(
+      newUser._id,
+      fcmToken
+    );
+    response.tokenSaved = token_Saved;
     return res.status(responseCode.EntryCreated).json({
       success: true,
       message: `OTP has been sent to ${newUser.email}`,
       data: {
-        userInfo: newUser,
+        userInfo: response,
         token,
       },
     });
@@ -134,6 +147,11 @@ exports.forgetpassword = async (req, res, next) => {
         false
       );
     }
+    await notificationService.sendNotificationToOne(
+      existingUser._id,
+      "Someone is trying to login to your account",
+      "alert"
+    );
     await sendOtp(existingUser.email);
     res.status(responseCode.EntryCreated).json({
       message: `OTP has been sent to ${existingUser.email}`,
@@ -325,6 +343,25 @@ exports.changePassword = async (req, res, next) => {
     res.status(200).json({
       success: true,
       message: "Your password has been changed successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.logout = async (req, res, next) => {
+  try {
+    const {
+      user,
+      body: { fcmToken },
+    } = req;
+    if (!user) {
+      throw new AppError();
+    }
+    const token_del = await notificationService.deleteToken(user._id, fcmToken);
+    res.status(responseCode.OK).json({
+      message: "Logout SuccessFully",
+      success: true,
     });
   } catch (error) {
     next(error);

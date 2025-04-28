@@ -1,8 +1,12 @@
 const NotificationToken = require("../models/Notifications");
 const AppError = require("../utils/AppError");
+const responseCode = require("../utils/responseCode");
 
 exports.storeNotificationToken = async (userId, fcmToken) => {
   try {
+    if (!fcmToken && !userId) {
+      throw new AppError("Missing params", responseCode.BadRequest);
+    }
     await NotificationToken.findOneAndUpdate(
       { userId: userId },
       { $addToSet: { fcmTokens: fcmToken } },
@@ -16,6 +20,9 @@ exports.storeNotificationToken = async (userId, fcmToken) => {
 };
 exports.deleteNotificationToken = async (userId, fcmToken) => {
   try {
+    if (!fcmToken && !userId) {
+      throw new AppError("Missing params", responseCode.BadRequest);
+    }
     await NotificationToken.findOneAndUpdate(
       { userId: userId },
       { $pull: { fcmTokens: fcmToken } }
@@ -33,6 +40,9 @@ exports.deleteNotificationToken = async (userId, fcmToken) => {
 
 exports.getAllFcmToken = async (userId) => {
   try {
+    if (!userId) {
+      throw new AppError("missing params", responseCode.BadRequest);
+    }
     const fcmTokenOfUser = await NotificationToken.findOne({ userId });
     if (!fcmTokenOfUser) {
       throw new AppError("No Such Token Exist");
@@ -45,10 +55,27 @@ exports.getAllFcmToken = async (userId) => {
 };
 exports.deleteAllFcmTokens = async (userId) => {
   try {
+    if (!userId) {
+      throw new AppError("missing params", responseCode.BadRequest);
+    }
     await NotificationToken.findOneAndDelete({ userId });
     return true;
   } catch (error) {
     console.log(error);
     return false;
+  }
+};
+
+exports.getFcmForAllUser = async (userIDs) => {
+  try {
+    if (!userIDs || userIDs.length === 0) {
+      throw new AppError("Missing params", responseCode.BadRequest);
+    }
+    const users = await NotificationToken.find({
+      userId: { $in: userIDs },
+    }).select("fcmTokens");
+    return users.flatMap((user) => user.fcmTokens || []);
+  } catch (error) {
+    return [];
   }
 };
