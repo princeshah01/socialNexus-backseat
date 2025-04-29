@@ -40,7 +40,23 @@ exports.view = async (req, res, next) => {
   }
 };
 
-// delete
-// will create later
+// block
 
-exports.delete = async (req, res, next) => {};
+exports.remove = async (req, res, next) => {
+  try {
+    // const loggedInUser = req?.user;
+    // const { channelId } = req?.body;
+
+    // todo
+    /*
+    get loggedinUser id and query for connection request that matches channelID and Also has loggedin user 
+    update isblocked flag
+    now make channel disable so non of them can send message 
+    also create a api to unblock or reuse it  (when unblock make isblock disabled & also enable channel to send message)
+    */
+
+    res.send("work in progress");
+  } catch (error) {
+    next(error);
+  }
+};

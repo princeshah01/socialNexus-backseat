@@ -1,9 +1,10 @@
-const User = require("../models/Connection");
+const User = require("../models/User");
 const ConnectionRequest = require("../models/Connection");
 const responseCode = require("../utils/responseCode");
 const USER_SAFE_DATA = require("../utils/utilityFunctions").userSafeData;
 const AppError = require("../utils/AppError");
-
+const { CreatePrivateChat } = require("../helper/StreamChat");
+const notificationService = require("../helper/NotificationService");
 // recevied
 
 exports.received = async (req, res, next) => {
@@ -31,13 +32,15 @@ exports.send = async (req, res, next) => {
   try {
     const fromUserId = req?.user?._id;
     const { toUserId, status } = req?.params;
+    console.log(toUserId, status);
     if (!acceptedStatus.includes(status)) {
       throw new AppError(
         `${status} request is Invalid`,
         responseCode.BadRequest
       );
     }
-    const existingUser = await User.findById({ _id: toUserId });
+    const existingUser = await User.findById(toUserId);
+    console.log(existingUser);
     if (!existingUser) {
       throw new AppError("User Does't Exist", responseCode.ResourceNotFound);
     }
@@ -52,7 +55,7 @@ exports.send = async (req, res, next) => {
     }
     const newRequest = new ConnectionRequest({
       fromUserId,
-      toUserId,
+      toUserId: existingUser._id,
       status,
     });
     await newRequest.save();
@@ -95,8 +98,8 @@ exports.review = async (req, res, next) => {
       CreatePrivateChat(loggedInUser, anotherUser, connectionReq._id);
       const title = `${loggedInUser.fullName} has accepted your request`;
       const message = `start messaging and Fix Date with ${loggedInUser.fullName}`;
-      response = NotificationService.sendNotification(
-        anotherUser.notificationToken,
+      let response = notificationService.sendNotificationToOne(
+        anotherUser._id,
         title,
         message
       );
@@ -115,6 +118,6 @@ exports.review = async (req, res, next) => {
     });
   } catch (err) {
     console.log(err);
-    next(error);
+    next(err);
   }
 };

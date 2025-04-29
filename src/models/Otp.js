@@ -27,10 +27,10 @@ const optSchema = new Schema({
 optSchema.methods.getJwt = async function () {
   const userOTP = this;
   const token = await jwt.sign(
-    { _id: userOTP._id, email: userOTP.email },
+    { _id: userOTP._id, email: userOTP.email, type: "change-password" },
     process.env.JWT_SECRET_OTP,
     {
-      expiresIn: "10m",
+      expiresIn: "5m",
     }
   );
   return token;

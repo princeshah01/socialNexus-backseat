@@ -17,8 +17,7 @@ const storeLastFivePassword = require("../utils/dbfunctions");
 const compareWithLastPassword = require("../helper/compareWithLastpassword");
 const jwt = require("jsonwebtoken");
 const notificationService = require("../helper/NotificationService");
-const notificationPayload = require("../utils/notificationpayload");
-
+const verifyOTP = require("../helper/VerifyToken");
 // login Controller
 exports.Login = async (req, res, next) => {
   try {
@@ -152,11 +151,12 @@ exports.forgetpassword = async (req, res, next) => {
       "Someone is trying to login to your account",
       "alert"
     );
+    let token = await existingUser.getForgetToken();
     await sendOtp(existingUser.email);
     res.status(responseCode.EntryCreated).json({
       message: `OTP has been sent to ${existingUser.email}`,
       success: true,
-      ToShow: "otp-screen",
+      token: token,
     });
   } catch (error) {
     next(error);
@@ -166,10 +166,14 @@ exports.forgetpassword = async (req, res, next) => {
 // reset With Old Password
 exports.resetWithOldPassword = async (req, res, next) => {
   try {
-    const { oldPassword, newPassword, email } = req?.body;
-    console.log(oldPassword, newPassword, email);
-    validatePassword(newPassword);
+    const {
+      body: { oldPassword },
+      user: email,
+    } = req;
+    console.log(oldPassword);
+    validatePassword(oldPassword);
     const user = await User.findOne({ email }).select("+password lastPassword");
+
     const isPasswordMatchedWithPast = await compareWithLastPassword(
       oldPassword,
       [...user.lastPassword, user.password]
@@ -181,33 +185,18 @@ exports.resetWithOldPassword = async (req, res, next) => {
         false
       );
     }
-    const isnewPasswordMatchedWithPast = await compareWithLastPassword(
-      newPassword,
-      [...user.lastPassword, user.password]
+    const token = await jwt.sign(
+      { email, type: "change-password" },
+      process.env.JWT_SECRET_OTP,
+      {
+        expiresIn: "5m",
+      }
     );
-    if (isnewPasswordMatchedWithPast) {
-      throw new AppError(
-        "Password You Entered match with the old Passwords try something else",
-        responseCode.Conflict,
-        false
-      );
-    }
-    const isOldPasswordSaved = await storeLastFivePassword(
-      user._id,
-      user.password
-    );
-    if (!isOldPasswordSaved) {
-      throw new AppError(
-        "Unable to Change Password",
-        responseCode.InternalServer,
-        false
-      );
-    }
-    user.password = await bcrypt.hash(newPassword, 10);
-    await user.save();
+
     res.status(responseCode.EntryCreated).json({
       success: true,
-      message: "Password Changed Successfully",
+      message: "password matched you can now change password",
+      token,
     });
   } catch (error) {
     // console.log(error)
@@ -219,49 +208,18 @@ exports.resetWithOldPassword = async (req, res, next) => {
 
 exports.verifyOTP = async (req, res, next) => {
   try {
-    const { email, otp, uses } = req.body;
-    if (!email) {
-      throw new AppError("Invalid Email", responseCode.Invalid, false);
-    }
-    if (!otp) {
-      throw new AppError(
-        "Please Enter OTP and Try Again !",
-        responseCode.Invalid,
-        false
-      );
-    }
-    const user = await User.findOne({ email });
-    if (!user) {
-      throw new AppError(
-        "User not Exist with This Email !",
-        responseCode.ResourceNotFound,
-        false
-      );
-    }
-    const existingOtp = await OTP.findOne({ email }).sort({ createdAt: -1 });
-
-    if (!existingOtp) {
-      throw new AppError(
-        "OTP Expired or Not Found",
-        responseCode.ResourceNotFound,
-        false
-      );
-    }
-    if (existingOtp.otp !== otp) {
-      throw new AppError("Invalid OTP", responseCode.InvalidOTP, false);
-    }
-    user.isVerified = true;
-    existingOtp.isOtpVerified = true;
-    await user.save();
-    let token;
-    if (uses == "change-password") {
-      token = await existingOtp.getJwt();
-    }
-    await existingOtp.deleteOne();
-    return res.status(responseCode.OK).json({
+    const {
+      user: email,
+      body: { otp },
+    } = req;
+    console.log(email, otp);
+    const isValidated = await verifyOTP(email, otp);
+    let token = await isValidated.getJwt();
+    await isValidated.deleteOne();
+    res.status(responseCode.OK).json({
       message: "OTP verified Done",
       success: true,
-      otpVerifiedToken: token,
+      token,
     });
   } catch (err) {
     next(err);
@@ -272,16 +230,8 @@ exports.verifyOTP = async (req, res, next) => {
 
 exports.resendOTP = async (req, res, next) => {
   try {
-    const { email } = req?.body;
-    const user = await User.findOne({ email });
-    if (!user) {
-      throw new AppError(
-        "No account found with this email",
-        responseCode.ResourceNotFound,
-        false
-      );
-    }
-    await sendOtp(user.email);
+    const email = req?.user;
+    await sendOtp(email);
     res.status(responseCode.EntryCreated).json({
       message: `OTP sent Successfully`,
       success: true,
@@ -297,17 +247,17 @@ exports.resendOTP = async (req, res, next) => {
 
 exports.changePassword = async (req, res, next) => {
   try {
-    const { password, otpVerifiedToken } = req.body;
+    const { password, token } = req.body;
     validatePassword(password);
-    const { email } = await jwt.verify(
-      otpVerifiedToken,
-      process.env.JWT_SECRET_OTP
-    );
+    const { email } = await jwt.verify(token, process.env.JWT_SECRET_OTP);
+    console.log(password, email);
     if (!email) {
       throw new AppError("Your OTP is NOT verified yet. Verify and try again");
     }
 
-    const user = await User.findOne({ email }).select("+password lastPassword");
+    const user = await User.findOne({ email: email }).select(
+      "+password lastPassword"
+    );
     if (!user) {
       throw new AppError(
         "User doesn't exist with this email",

@@ -32,7 +32,7 @@ class NotificationService {
     try {
       const tokens = await getAllFcmToken(userId);
       if (!tokens || tokens.length === 0) {
-        console.log(`no tokens found ${userId}`);
+        console.log(`no push tokens found ${userId}`);
         return false;
       }
       const msg = notificationPayload(tokens, title, message);

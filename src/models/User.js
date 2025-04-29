@@ -190,6 +190,17 @@ UserSchema.methods.getJWT = async function () {
   });
   return token;
 };
+UserSchema.methods.getForgetToken = async function () {
+  const user = this;
+  const token = await jwt.sign(
+    { _id: user._id, type: "Forget-Password" },
+    process.env.JWT_FORGETPASSWORD_VERIFY,
+    {
+      expiresIn: "1d", // have to change it to 5min
+    }
+  );
+  return token;
+};
 
 UserSchema.methods.validatePassword = async function (password) {
   const user = this;

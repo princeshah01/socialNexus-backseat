@@ -2,9 +2,9 @@ const AppError = require("../utils/AppError");
 
 const errorHandler = (err, req, res, next) => {
   if (err.name === "JsonWebTokenError") {
-    err = new AppError("Invalid token. Please login again.", 401, false);
+    err = new AppError("Invalid token ! Try Again.", 401, false);
   } else if (err.name === "TokenExpiredError") {
-    err = new AppError("Token has expired. Please login again.", 401, false);
+    err = new AppError("Token has expired. Try Again.", 401, false);
   }
   if (err.name === "ValidationError") {
     // Get the first validation error message

@@ -6,7 +6,11 @@ const authUser = async (req, res, next) => {
   try {
     const header = req?.headers?.authorization;
     if (!header) {
-      throw new AppError("No Token Attached", responseCode.BadRequest, false);
+      throw new AppError(
+        "unauthorized access",
+        responseCode.Unauthorized,
+        false
+      );
     }
     const token = header.toString().split(" ")[1];
     if (!token) {
